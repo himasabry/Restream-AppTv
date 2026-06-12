@@ -115,7 +115,146 @@ app.get("/status", (req, res) => {
 
   res.json(result);
 });
+app.get("/dashboard", (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Restream Dashboard</title>
 
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  background:#0f172a;
+  color:white;
+  font-family:Arial,sans-serif;
+  padding:20px;
+}
+
+h1{
+  text-align:center;
+  margin-bottom:20px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:15px;
+}
+
+.card{
+  background:#1e293b;
+  border-radius:15px;
+  padding:20px;
+}
+
+.live{
+  color:#22c55e;
+  font-weight:bold;
+}
+
+.offline{
+  color:#ef4444;
+  font-weight:bold;
+}
+
+.btn{
+  border:none;
+  padding:10px 15px;
+  border-radius:8px;
+  cursor:pointer;
+  color:white;
+  margin-right:5px;
+}
+
+.start{
+  background:#16a34a;
+}
+
+.stop{
+  background:#dc2626;
+}
+
+.refresh{
+  background:#2563eb;
+}
+
+.top{
+  text-align:center;
+  margin-bottom:20px;
+}
+</style>
+</head>
+<body>
+
+<h1>📡 Restream Dashboard</h1>
+
+<div class="top">
+<button class="btn refresh" onclick="loadData()">🔄 Refresh</button>
+</div>
+
+<div id="channels" class="grid"></div>
+
+<script>
+
+async function loadData(){
+
+  const res = await fetch('/status');
+  const data = await res.json();
+
+  let html = '';
+
+  Object.keys(data).forEach(id => {
+
+    const status = data[id].active
+      ? '<span class="live">🟢 LIVE</span>'
+      : '<span class="offline">🔴 OFFLINE</span>';
+
+    html += \`
+      <div class="card">
+
+        <h2>\${id}</h2>
+
+        <p style="margin:10px 0;">
+          Status: \${status}
+        </p>
+
+        <button
+          class="btn start"
+          onclick="window.location='/start?id=\${id}'">
+          ▶ Start
+        </button>
+
+        <button
+          class="btn stop"
+          onclick="window.location='/stop?id=\${id}'">
+          ⏹ Stop
+        </button>
+
+      </div>
+    \`;
+  });
+
+  document.getElementById("channels").innerHTML = html;
+}
+
+loadData();
+
+setInterval(loadData, 5000);
+
+</script>
+
+</body>
+</html>
+  `);
+});
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, "0.0.0.0", () => {
