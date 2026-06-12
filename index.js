@@ -4,8 +4,6 @@ import { spawn } from "child_process";
 const app = express();
 
 let ffmpegProcesses = {};
-
-// 👁️ عداد مشاهدين (محسن بدل fake ثابت)
 let viewers = {};
 let viewerIntervals = {};
 
@@ -37,7 +35,7 @@ const channels = {
   }
 };
 
-// 🎯 لوجو لكل قناة
+// 🎯 اللوجوهات
 const logos = {
   ch1: "logo1.png",
   ch2: "logo22.png",
@@ -50,7 +48,7 @@ function getLogo(id) {
   return logos[id] || "logo.png";
 }
 
-// 🛡️ حماية
+// 🛡️ حماية أخطاء
 process.on("uncaughtException", (err) => {
   console.log("🔥 Error:", err);
 });
@@ -61,9 +59,13 @@ process.on("unhandledRejection", (err) => {
 
 // 🌐 Home
 app.get("/", (req, res) => {
-  res.send("🚀 Restream System Running FINAL (Improved Viewers)");
+  res.send("🚀 Restream System Running on Fly.io");
 });
 
+// ❤️ Health Check (مهم لـ Fly)
+app.get("/health", (req, res) => {
+  res.send("OK");
+});
 
 // ▶️ Start Stream
 app.get("/start", (req, res) => {
@@ -114,7 +116,6 @@ app.get("/start", (req, res) => {
     console.log(`❌ ${id} exited ${code}`);
     delete ffmpegProcesses[id];
 
-    // 🧹 تنظيف العدّاد
     viewers[id] = 0;
 
     if (viewerIntervals[id]) {
@@ -125,23 +126,19 @@ app.get("/start", (req, res) => {
 
   ffmpegProcesses[id] = ffmpeg;
 
-  // 👁️ init viewers
   viewers[id] = Math.floor(Math.random() * 10) + 3;
 
-  // 🔥 حركة مشاهدة واقعية
   if (viewerIntervals[id]) clearInterval(viewerIntervals[id]);
 
   viewerIntervals[id] = setInterval(() => {
     if (!viewers[id]) return;
 
-    let change = Math.floor(Math.random() * 3) - 1; // -1 0 +1
+    let change = Math.floor(Math.random() * 3) - 1;
     viewers[id] = Math.max(1, viewers[id] + change);
-
   }, 4000);
 
   res.send(`✅ Channel ${id} started`);
 });
-
 
 // 🛑 Stop Stream
 app.get("/stop", (req, res) => {
@@ -162,7 +159,6 @@ app.get("/stop", (req, res) => {
   res.send(`🛑 Channel ${id} stopped`);
 });
 
-
 // 📊 Status
 app.get("/status", (req, res) => {
   const result = {};
@@ -176,7 +172,6 @@ app.get("/status", (req, res) => {
 
   res.json(result);
 });
-
 
 // 📡 Dashboard
 app.get("/dashboard", (req, res) => {
@@ -193,7 +188,7 @@ app.get("/dashboard", (req, res) => {
 </head>
 <body>
 
-<h2>📡 Live Dashboard (Improved Viewers)</h2>
+<h2>📡 Live Dashboard</h2>
 
 <div id="list"></div>
 
@@ -228,13 +223,9 @@ setInterval(load, 3000);
   `);
 });
 
+// 🚀 تشغيل السيرفر (IMPORTANT FIX FOR FLY.IO)
+const PORT = process.env.PORT || 8080;
 
-// 🚀 Health check
-app.get("/health", (req, res) => {
-  res.send("OK");
-});
-
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log("🚀 Server running on port", port);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("🚀 Server running on port", PORT);
 });
