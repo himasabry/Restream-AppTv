@@ -52,7 +52,7 @@ function startChannel(id) {
     "-i", ch.logo,
 
     "-filter_complex",
-    "[0:v][1:v]overlay=W-w-10:10",
+    "[0:v]scale=1280:720,setsar=1[base];[base][1:v]overlay=W-w-5:5",
 
     "-c:v", "libx264",
     "-preset", "veryfast",
