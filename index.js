@@ -5,6 +5,8 @@ const app = express();
 
 let ffmpegProcesses = {};
 let restartTimers = {};
+let viewers = {};
+let viewerIntervals = {};
 
 // 🎯 القنوات
 const channels = {
@@ -35,29 +37,28 @@ const channels = {
 };
 
 // 🛡️ حماية
-process.on("uncaughtException", (err) => console.log("🔥 Error:", err));
-process.on("unhandledRejection", (err) => console.log("🔥 Rejection:", err));
+process.on("uncaughtException", err => console.log("🔥 Error:", err));
+process.on("unhandledRejection", err => console.log("🔥 Rejection:", err));
 
 // 🌐 Home
 app.get("/", (req, res) => {
   res.send("🚀 Stable Restream Running on Fly.io");
 });
 
-// ❤️ Health
 app.get("/health", (req, res) => res.send("OK"));
 
 
-// 🔥 تشغيل FFmpeg مع حماية + Restart
+// 🔥 تشغيل FFmpeg (نسخة ثابتة)
 function startFFmpeg(id) {
-  const channel = channels[id];
-  if (!channel) return;
+  const ch = channels[id];
+  if (!ch) return;
 
   console.log(`▶ Starting ${id}`);
 
   const ffmpeg = spawn("ffmpeg", [
     "-re",
 
-    // 🔥 أهم جزء للاستقرار
+    // 🔥 مهم جدًا للاستقرار
     "-reconnect", "1",
     "-reconnect_streamed", "1",
     "-reconnect_delay_max", "5",
@@ -65,33 +66,33 @@ function startFFmpeg(id) {
     "-fflags", "+genpts+discardcorrupt",
     "-flags", "low_delay",
 
-    "-i", channel.input,
+    "-i", ch.input,
 
     "-c:v", "libx264",
     "-preset", "veryfast",
     "-tune", "zerolatency",
-    "-b:v", "900k",
-    "-maxrate", "900k",
-    "-bufsize", "1800k",
+    "-b:v", "1000k",
+    "-maxrate", "1000k",
+    "-bufsize", "2000k",
     "-r", "25",
 
     "-c:a", "aac",
     "-b:a", "96k",
 
     "-f", "flv",
-    channel.output
+    ch.output
   ]);
 
-  ffmpeg.stderr.on("data", (d) => {
+  ffmpeg.stderr.on("data", d => {
     console.log(`[${id}] ${d.toString()}`);
   });
 
-  ffmpeg.on("exit", (code) => {
+  ffmpeg.on("exit", code => {
     console.log(`❌ ${id} exited ${code}`);
 
     delete ffmpegProcesses[id];
 
-    // 🔥 Restart تلقائي بعد 3 ثواني
+    // 🔄 Auto restart بعد 3 ثواني
     restartTimers[id] = setTimeout(() => {
       console.log(`🔄 Restarting ${id}`);
       startFFmpeg(id);
@@ -106,10 +107,22 @@ function startFFmpeg(id) {
 app.get("/start", (req, res) => {
   const id = req.query.id;
 
+  if (!id) return res.send("❌ missing id");
   if (!channels[id]) return res.send("❌ channel not found");
   if (ffmpegProcesses[id]) return res.send("⚠️ already running");
 
   startFFmpeg(id);
+
+  // 👁️ fake viewers (كما هو عندك)
+  viewers[id] = Math.floor(Math.random() * 10) + 3;
+
+  if (viewerIntervals[id]) clearInterval(viewerIntervals[id]);
+
+  viewerIntervals[id] = setInterval(() => {
+    if (!viewers[id]) return;
+    let change = Math.floor(Math.random() * 3) - 1;
+    viewers[id] = Math.max(1, viewers[id] + change);
+  }, 4000);
 
   res.send(`✅ Channel ${id} started`);
 });
@@ -129,6 +142,13 @@ app.get("/stop", (req, res) => {
     delete restartTimers[id];
   }
 
+  viewers[id] = 0;
+
+  if (viewerIntervals[id]) {
+    clearInterval(viewerIntervals[id]);
+    delete viewerIntervals[id];
+  }
+
   res.send(`🛑 Channel ${id} stopped`);
 });
 
@@ -139,7 +159,8 @@ app.get("/status", (req, res) => {
 
   for (const id in channels) {
     result[id] = {
-      active: !!ffmpegProcesses[id]
+      active: !!ffmpegProcesses[id],
+      viewers: viewers[id] || 0
     };
   }
 
@@ -152,7 +173,9 @@ app.get("/dashboard", (req, res) => {
   res.send(`
 <html>
 <body style="background:#111;color:#fff;font-family:Arial;padding:20px">
-<h2>📡 Stable Dashboard</h2>
+
+<h2>📡 Stable Restream Dashboard</h2>
+
 <div id="list"></div>
 
 <script>
@@ -163,21 +186,24 @@ async function load(){
   document.getElementById('list').innerHTML =
     Object.keys(d).map(ch =>
       "<div style='margin:10px;padding:10px;background:#222'>" +
-      ch + " - " + (d[ch].active ? "🟢 LIVE" : "🔴 OFF") +
-      "<br><a href='/start?id="+ch+"'>Start</a> | " +
-      "<a href='/stop?id="+ch+"'>Stop</a></div>"
+      "<h3>" + ch + " - " + (d[ch].active ? "🟢 LIVE" : "🔴 OFF") + "</h3>" +
+      "<p>👁️ Viewers: " + d[ch].viewers + "</p>" +
+      "<a href='/start?id="+ch+"'>Start</a> | " +
+      "<a href='/stop?id="+ch+"'>Stop</a>" +
+      "</div>"
     ).join('');
 }
 load();
 setInterval(load,3000);
 </script>
+
 </body>
 </html>
   `);
 });
 
 
-// 🚀 Fly.io PORT FIX
+// 🚀 Fly.io port fix
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, "0.0.0.0", () => {
