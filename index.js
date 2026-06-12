@@ -9,6 +9,11 @@ let viewerIntervals = {};
 
 // 🎯 القنوات
 const channels = {
+  ch4k: {
+    input: "http://2030.buzz-4k.xyz/live/56272882873737/xh3agpq1cm/1950411.m3u8",
+    output: "rtmp://rtmp.livepeer.com/live/6ce1-v2hu-38fu-awwa"
+  },
+  
   ch1: {
     input: "https://pub-b6a2e12c8294473a88fb9c317217dbbc.r2.dev/BMax1.m3u8",
     output: "rtmp://rtmp.livepeer.com/live/6ce1-v2hu-38fu-awwa"
@@ -37,6 +42,7 @@ const channels = {
 
 // 🎯 اللوجوهات
 const logos = {
+  ch4k: "logo4k.png",
   ch1: "logo1.png",
   ch2: "logo22.png",
   ch3: "logo33.png",
