@@ -10,7 +10,7 @@ let viewerIntervals = {};
 // 🎯 القنوات
 const channels = {
   ch1: {
-    input: "http://194.60.93.157/proxy?url=http://185.191.126.127:8080/live///357643467990765/Ofgo3yz8CH/462211.ts",
+    input: "https://super.hima-sabry2015.workers.dev/ch/bmax1_1080/index.m3u8",
     output: "rtmp://rtmp.livepeer.com/live/6ce1-v2hu-38fu-awwa"
   },
 
