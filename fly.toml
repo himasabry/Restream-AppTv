@@ -1,10 +1,10 @@
-# fly.toml app configuration file generated for restream-app on 2026-06-11T16:12:35Z
+# fly.toml app configuration file generated for restream-apptv on 2026-06-12T00:22:05Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'restream-app'
-primary_region = 'cdg'
+app = 'restream-apptv'
+primary_region = 'ams'
 
 [build]
 
