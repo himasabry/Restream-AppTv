@@ -11,7 +11,7 @@ let viewerIntervals = {};
 const channels = {
   ch4k: {
     input: "http://2030.buzz-4k.xyz/live/56272882873737/xh3agpq1cm/1950411.m3u8",
-    output: "rtmp://rtmp.livepeer.com/live/6ce1-v2hu-38fu-awwa"
+    output: "rtmp://rtmp.livepeer.com/live/758d-vhe5-kbzu-802d"
   },
   
   ch1: {
