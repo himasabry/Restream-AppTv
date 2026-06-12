@@ -4,8 +4,7 @@ import { spawn } from "child_process";
 const app = express();
 
 let ffmpegProcesses = {};
-let viewers = {};
-let viewerIntervals = {};
+let restartTimers = {};
 
 // 🎯 القنوات
 const channels = {
@@ -13,7 +12,7 @@ const channels = {
     input: "http://2030.buzz-4k.xyz/live/56272882873737/xh3agpq1cm/1950411.m3u8",
     output: "rtmp://rtmp.livepeer.com/live/758d-vhe5-kbzu-802d"
   },
-  
+
   ch1: {
     input: "https://pub-b6a2e12c8294473a88fb9c317217dbbc.r2.dev/BMax1.m3u8",
     output: "rtmp://rtmp.livepeer.com/live/6ce1-v2hu-38fu-awwa"
@@ -32,79 +31,48 @@ const channels = {
   ch4: {
     input: "https://streem.rodoye.com/live/rodo/max_4/index.m3u8",
     output: "rtmp://rtmp.livepeer.com/live/stream-key-4"
-  },
-
-  ch5: {
-    input: "https://example.com/ch5.m3u8",
-    output: "rtmp://rtmp.livepeer.com/live/stream-key-5"
   }
 };
 
-// 🎯 اللوجوهات
-const logos = {
-  ch4k: "logo4k.png",
-  ch1: "logo1.png",
-  ch2: "logo22.png",
-  ch3: "logo33.png",
-  ch4: "logo44.png",
-  ch5: "logo55.png",
-};
-
-function getLogo(id) {
-  return logos[id] || "logo.png";
-}
-
-// 🛡️ حماية أخطاء
-process.on("uncaughtException", (err) => {
-  console.log("🔥 Error:", err);
-});
-
-process.on("unhandledRejection", (err) => {
-  console.log("🔥 Rejection:", err);
-});
+// 🛡️ حماية
+process.on("uncaughtException", (err) => console.log("🔥 Error:", err));
+process.on("unhandledRejection", (err) => console.log("🔥 Rejection:", err));
 
 // 🌐 Home
 app.get("/", (req, res) => {
-  res.send("🚀 Restream System Running on Fly.io");
+  res.send("🚀 Stable Restream Running on Fly.io");
 });
 
-// ❤️ Health Check (مهم لـ Fly)
-app.get("/health", (req, res) => {
-  res.send("OK");
-});
+// ❤️ Health
+app.get("/health", (req, res) => res.send("OK"));
 
-// ▶️ Start Stream
-app.get("/start", (req, res) => {
-  const id = req.query.id;
 
-  if (!id) return res.send("❌ missing id");
-
+// 🔥 تشغيل FFmpeg مع حماية + Restart
+function startFFmpeg(id) {
   const channel = channels[id];
-  if (!channel) return res.send("❌ channel not found");
+  if (!channel) return;
 
-  if (ffmpegProcesses[id]) {
-    return res.send("⚠️ already running");
-  }
-
-  const logo = getLogo(id);
+  console.log(`▶ Starting ${id}`);
 
   const ffmpeg = spawn("ffmpeg", [
     "-re",
+
+    // 🔥 أهم جزء للاستقرار
+    "-reconnect", "1",
+    "-reconnect_streamed", "1",
+    "-reconnect_delay_max", "5",
+
     "-fflags", "+genpts+discardcorrupt",
     "-flags", "low_delay",
 
     "-i", channel.input,
-    "-i", logo,
-
-    "-filter_complex",
-    "[0:v]scale=1280:720,setsar=1[base];[base][1:v]overlay=W-w-5:5",
 
     "-c:v", "libx264",
     "-preset", "veryfast",
     "-tune", "zerolatency",
-    "-b:v", "1200k",
-    "-maxrate", "1200k",
-    "-bufsize", "2400k",
+    "-b:v", "900k",
+    "-maxrate", "900k",
+    "-bufsize", "1800k",
     "-r", "25",
 
     "-c:a", "aac",
@@ -120,33 +88,34 @@ app.get("/start", (req, res) => {
 
   ffmpeg.on("exit", (code) => {
     console.log(`❌ ${id} exited ${code}`);
+
     delete ffmpegProcesses[id];
 
-    viewers[id] = 0;
-
-    if (viewerIntervals[id]) {
-      clearInterval(viewerIntervals[id]);
-      delete viewerIntervals[id];
-    }
+    // 🔥 Restart تلقائي بعد 3 ثواني
+    restartTimers[id] = setTimeout(() => {
+      console.log(`🔄 Restarting ${id}`);
+      startFFmpeg(id);
+    }, 3000);
   });
 
   ffmpegProcesses[id] = ffmpeg;
+}
 
-  viewers[id] = Math.floor(Math.random() * 10) + 3;
 
-  if (viewerIntervals[id]) clearInterval(viewerIntervals[id]);
+// ▶️ Start
+app.get("/start", (req, res) => {
+  const id = req.query.id;
 
-  viewerIntervals[id] = setInterval(() => {
-    if (!viewers[id]) return;
+  if (!channels[id]) return res.send("❌ channel not found");
+  if (ffmpegProcesses[id]) return res.send("⚠️ already running");
 
-    let change = Math.floor(Math.random() * 3) - 1;
-    viewers[id] = Math.max(1, viewers[id] + change);
-  }, 4000);
+  startFFmpeg(id);
 
   res.send(`✅ Channel ${id} started`);
 });
 
-// 🛑 Stop Stream
+
+// 🛑 Stop
 app.get("/stop", (req, res) => {
   const id = req.query.id;
 
@@ -155,15 +124,14 @@ app.get("/stop", (req, res) => {
     delete ffmpegProcesses[id];
   }
 
-  viewers[id] = 0;
-
-  if (viewerIntervals[id]) {
-    clearInterval(viewerIntervals[id]);
-    delete viewerIntervals[id];
+  if (restartTimers[id]) {
+    clearTimeout(restartTimers[id]);
+    delete restartTimers[id];
   }
 
   res.send(`🛑 Channel ${id} stopped`);
 });
+
 
 // 📊 Status
 app.get("/status", (req, res) => {
@@ -171,65 +139,45 @@ app.get("/status", (req, res) => {
 
   for (const id in channels) {
     result[id] = {
-      active: !!ffmpegProcesses[id],
-      viewers: viewers[id] || 0
+      active: !!ffmpegProcesses[id]
     };
   }
 
   res.json(result);
 });
 
+
 // 📡 Dashboard
 app.get("/dashboard", (req, res) => {
   res.send(`
-<!DOCTYPE html>
 <html>
-<head>
-  <title>Dashboard</title>
-  <style>
-    body { font-family: Arial; background:#111; color:#fff; padding:20px; }
-    .card { background:#222; padding:15px; margin:10px 0; border-radius:10px; }
-    button { padding:8px 12px; margin:5px; cursor:pointer; }
-  </style>
-</head>
-<body>
-
-<h2>📡 Live Dashboard</h2>
-
+<body style="background:#111;color:#fff;font-family:Arial;padding:20px">
+<h2>📡 Stable Dashboard</h2>
 <div id="list"></div>
 
 <script>
+async function load(){
+  const r = await fetch('/status');
+  const d = await r.json();
 
-async function load() {
-  const res = await fetch('/status');
-  const data = await res.json();
-
-  const box = document.getElementById('list');
-  box.innerHTML = '';
-
-  Object.keys(data).forEach(ch => {
-    const d = data[ch];
-
-    box.innerHTML += "<div class='card'>" +
-      "<h3>" + ch + " - " + (d.active ? '🟢 LIVE' : '🔴 OFFLINE') + "</h3>" +
-      "<p>👁️ Viewers: " + d.viewers + "</p>" +
-      "<a href='/start?id=" + ch + "'><button style='background:green;color:white;'>Start</button></a>" +
-      "<a href='/stop?id=" + ch + "'><button style='background:red;color:white;'>Stop</button></a>" +
-      "</div>";
-  });
+  document.getElementById('list').innerHTML =
+    Object.keys(d).map(ch =>
+      "<div style='margin:10px;padding:10px;background:#222'>" +
+      ch + " - " + (d[ch].active ? "🟢 LIVE" : "🔴 OFF") +
+      "<br><a href='/start?id="+ch+"'>Start</a> | " +
+      "<a href='/stop?id="+ch+"'>Stop</a></div>"
+    ).join('');
 }
-
 load();
-setInterval(load, 3000);
-
+setInterval(load,3000);
 </script>
-
 </body>
 </html>
   `);
 });
 
-// 🚀 تشغيل السيرفر (IMPORTANT FIX FOR FLY.IO)
+
+// 🚀 Fly.io PORT FIX
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, "0.0.0.0", () => {
